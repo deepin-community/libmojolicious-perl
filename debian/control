@@ -4,21 +4,24 @@ Uploaders: gregor herrmann <gregoa@debian.org>,
            Angel Abad <angel@debian.org>,
            Dominique Dumont <dod@debian.org>,
            CSILLAG Tamas <cstamas@cstamas.hu>,
-           Nick Morrott <nickm@debian.org>
+           Nick Morrott <nickm@debian.org>,
+           Philip Hands <phil@hands.com>
 Section: perl
 Testsuite: autopkgtest-pkg-perl
 Priority: optional
-Build-Depends: debhelper-compat (= 13)
+Build-Depends: debhelper-compat (= 13),
+               dh-strip-nondeterminism
 Build-Depends-Indep: libcpan-meta-yaml-perl <!nocheck>,
                      libcpanel-json-xs-perl <!nocheck>,
+                     libcryptx-perl (>= 0.80) <!nocheck>,
                      libfuture-asyncawait-perl (>= 0.52) <!nocheck>,
-                     libio-socket-ip-perl (>= 0.39-3~) <!nocheck>,
-                     libjs-bootstrap4 <!nocheck>,
+                     libio-socket-ip-perl <!nocheck>,
+                     libjs-bootstrap5 <!nocheck>,
                      libjs-highlight.js <!nocheck>,
-                     libjs-jquery <!nocheck>,
+                     libjs-popper.js <!nocheck>,
                      librole-tiny-perl <!nocheck>,
                      perl
-Standards-Version: 4.6.0
+Standards-Version: 4.7.0
 Vcs-Browser: https://salsa.debian.org/perl-team/modules/packages/libmojolicious-perl
 Vcs-Git: https://salsa.debian.org/perl-team/modules/packages/libmojolicious-perl.git
 Homepage: https://mojolicious.org
@@ -28,20 +31,20 @@ Package: libmojolicious-perl
 Architecture: all
 Depends: ${misc:Depends},
          ${perl:Depends},
-         libio-socket-ip-perl (>= 0.39-3~),
-         libjs-bootstrap4,
+         libio-socket-ip-perl,
+         libjs-bootstrap5,
          libjs-highlight.js,
-         libjs-jquery
+         libjs-popper.js
 Recommends: libcpan-meta-yaml-perl,
             libcpanel-json-xs-perl,
-            libev-perl (>= 4.32),
-            libfuture-asyncawait-perl (>= 0.52) <!nocheck>,
+            libcryptx-perl (>= 0.80),
+            libev-perl,
+            libfuture-asyncawait-perl (>= 0.52),
             libio-socket-socks-perl,
             libio-socket-ssl-perl,
             libmojo-server-fastcgi-perl,
             librole-tiny-perl
-Breaks: libmango-perl (<< 1.30-2~),
-        libmojolicious-plugin-openapi-perl (<< 4.04)
+Breaks: libmojolicious-plugin-openapi-perl (<< 4.04)
 Description: simple, yet powerful, Web Application Framework
  Mojolicious is a Perl Web Application Framework built around the familiar
  Model-View-Controller philosophy. It supports a simple single file mode via

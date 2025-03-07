@@ -22,25 +22,24 @@ app->defaults(default => 23);
 
 # Secret
 app->log->level('trace')->unsubscribe('message');
-my $log = '';
-my $cb  = app->log->on(message => sub { $log .= pop });
+my $logs = app->log->capture('trace');
 is app->secrets->[0], app->moniker, 'secret defaults to moniker';
-like $log, qr/Your secret passphrase needs to be changed/, 'right message';
-app->log->unsubscribe(message => $cb);
+like $logs, qr/Your secret passphrase needs to be changed/, 'right message';
+undef $logs;
 
 # Test helpers
 helper test_helper  => sub { shift->param(@_) };
 helper test_helper2 => sub { shift->app->controller_class };
 helper test_helper3 => sub { state $cache = {} };
 helper dead         => sub { die $_[1] || 'works!' };
-is app->test_helper('foo'), undef, 'no value yet';
-is app->test_helper2, 'Mojolicious::Controller', 'right value';
+is app->test_helper('foo'), undef,                     'no value yet';
+is app->test_helper2,       'Mojolicious::Controller', 'right value';
 app->test_helper3->{foo} = 'bar';
 is app->test_helper3->{foo}, 'bar', 'right result';
 
 # Nested helpers
 helper 'test.helper' => sub { shift->app->controller_class };
-is app->test->helper, 'Mojolicious::Controller', 'right value';
+is app->test->helper,                   'Mojolicious::Controller', 'right value';
 is app->build_controller->test->helper, 'Mojolicious::Controller', 'right value';
 
 # Test renderer
@@ -274,12 +273,6 @@ get '/session_cookie/2' => sub {
   $c->render(text => "Session is $value!");
 };
 
-get '/session_length' => sub {
-  my $c = shift;
-  $c->session->{q} = $c->param('q');
-  $c->rendered(204);
-};
-
 get '/foo' => sub {
   my $c = shift;
   $c->render(text => 'Yea baby!');
@@ -469,15 +462,15 @@ get '/timing' => sub {
 my $t = Test::Mojo->new;
 
 # Application is already available
-is $t->app->test_helper2, 'Mojolicious::Controller', 'right class';
-is $t->app->moniker,      'lite_app',                'right moniker';
-is $t->app->stash->{default}, 23, 'right value';
-is $t->app, app->build_controller->app->commands->app, 'applications are equal';
-is $t->app->build_controller->req->url, '', 'no URL';
-is $t->app->build_controller->stash->{default}, 23, 'right value';
-is $t->app->build_controller($t->app->ua->build_tx(GET => '/foo'))->req->url, '/foo', 'right URL';
-is $t->app->build_controller->render_to_string('index', handler => 'epl'), 'Just works!', 'right result';
-is $t->app->build_controller->render_to_string(inline => '0'), "0\n", 'right result';
+is $t->app->test_helper2,                       'Mojolicious::Controller',                   'right class';
+is $t->app->moniker,                            'lite_app',                                  'right moniker';
+is $t->app->stash->{default},                   23,                                          'right value';
+is $t->app,                                     app->build_controller->app->commands->app,   'applications are equal';
+is $t->app->build_controller->req->url,         '',                                          'no URL';
+is $t->app->build_controller->stash->{default}, 23,                                          'right value';
+is $t->app->build_controller($t->app->ua->build_tx(GET => '/foo'))->req->url, '/foo',        'right URL';
+is $t->app->build_controller->render_to_string('index', handler => 'epl'),    'Just works!', 'right result';
+is $t->app->build_controller->render_to_string(inline => '0'),                "0\n",         'right result';
 
 # Empty template
 $t->get_ok('/empty')->status_is(200)->content_is('');
@@ -752,21 +745,19 @@ $t->get_ok('/to_string')->status_is(200)->content_is('beforeafter');
 $t->get_ok('/source')->status_is(200)->content_type_is('application/octet-stream')->content_like(qr!get_ok\('/source!);
 
 # File does not exist
-$log = '';
-$cb  = $t->app->log->on(message => sub { $log .= pop });
+$logs = app->log->capture('trace');
 $t->get_ok('/source?fail=1')->status_is(500)->content_like(qr/Static file "does_not_exist.txt" not found/);
-like $log, qr/Static file "does_not_exist.txt" not found/, 'right message';
-$t->app->log->unsubscribe(message => $cb);
+like $logs, qr/Static file "does_not_exist.txt" not found/, 'right message';
+undef $logs;
 
 # With body and max message size
 {
   local $ENV{MOJO_MAX_MESSAGE_SIZE} = 1024;
-  $log = '';
-  $cb  = $t->app->log->on(message => sub { $log .= pop });
+  my $logs = app->log->capture('trace');
   $t->get_ok('/', '1234' x 1024)->status_is(200)->header_is(Connection => 'close')
     ->content_is("Maximum message size exceeded\n" . "/root.html\n/root.html\n/root.html\n/root.html\n/root.html\n");
-  like $log, qr/Maximum message size exceeded/, 'right message';
-  $t->app->log->unsubscribe(message => $cb);
+  like $logs, qr/Maximum message size exceeded/, 'right message';
+  undef $logs;
 }
 
 # Relaxed placeholder
@@ -804,30 +795,6 @@ $t->reset_session;
 ok !$t->tx, 'session reset';
 $t->get_ok('/session_cookie/2')->status_is(200)->header_is(Server => 'Mojolicious (Perl)')
   ->content_is('Session is missing!');
-
-
-subtest 'Session length' => sub {
-  my $extract = sub {
-    my $value = $_[0]->tx->res->cookie('mojolicious')->value;
-    $value =~ s/--([^\-]+)$//;
-    $value =~ y/-/=/;
-    return Mojo::Util::b64_decode($value);
-  };
-
-  subtest 'Short session' => sub {
-    $t->reset_session;
-    my $value = $t->get_ok('/session_length?q=a')->status_is(204)->$extract;
-    cmp_ok length($value), '>', 1024, 'session is long enough';
-    ok $value =~ /Z+$/, 'session is padded';
-  };
-
-  subtest 'Long session' => sub {
-    $t->reset_session;
-    my $value = $t->get_ok('/session_length?q=' . 'a' x 1025)->status_is(204)->$extract;
-    cmp_ok length($value), '>', 1024, 'session is long enough';
-    ok $value !~ /Z+$/, 'session is not padded';
-  };
-};
 
 # Text
 $t->get_ok('/foo')->status_is(200)->header_is(Server => 'Mojolicious (Perl)')->content_is('Yea baby!');
@@ -936,7 +903,7 @@ $t->ua->max_redirects(3);
 $t->get_ok('/redirect_twice')->status_is(200)->header_is(Server => 'Mojolicious (Perl)')
   ->text_is('div#☃' => 'Redirect works!');
 my $redirects = $t->tx->redirects;
-is scalar @$redirects, 2, 'two redirects';
+is scalar @$redirects,              2,                 'two redirects';
 is $redirects->[0]->req->url->path, '/redirect_twice', 'right path';
 is $redirects->[1]->req->url->path, '/redirect_named', 'right path';
 $t->ua->max_redirects(0);

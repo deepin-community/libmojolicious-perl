@@ -3,7 +3,7 @@ use Mojo::Base -strict;
 use Test::More;
 use Mojo::File qw(path tempdir);
 use Mojo::Log;
-use Mojo::Util qw(decode);
+use Mojo::Util  qw(decode);
 use Time::HiRes qw(time);
 
 my $dir  = tempdir;
@@ -46,8 +46,8 @@ subtest 'Logging to STDERR' => sub {
 
 subtest 'Formatting' => sub {
   my $log = Mojo::Log->new;
-  like $log->format->(time,       'debug', 'Test 123'), qr/^\[.*\] \[debug\] Test 123\n$/, 'right format';
-  like $log->format->(time,       'debug', qw(Test 1 2 3)), qr/^\[.*\] \[debug\] Test 1 2 3\n$/, 'right format';
+  like $log->format->(time,       'debug', 'Test 123'),        qr/^\[.*\] \[debug\] Test 123\n$/,        'right format';
+  like $log->format->(time,       'debug', qw(Test 1 2 3)),    qr/^\[.*\] \[debug\] Test 1 2 3\n$/,      'right format';
   like $log->format->(time,       'error', 'I ♥ Mojolicious'), qr/^\[.*\] \[error\] I ♥ Mojolicious\n$/, 'right format';
   like $log->format->(CORE::time, 'error', 'I ♥ Mojolicious'), qr/^\[.*\] \[error\] I ♥ Mojolicious\n$/, 'right format';
   $log->format(sub {
@@ -140,13 +140,64 @@ subtest 'History' => sub {
   like $content,   qr/\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{5}\] \[$$\] \[error\] First\n/, 'right error message';
   like $content,   qr/\[.*\] \[info\] Fourth Fifth\n/,                                          'right info message';
   unlike $content, qr/debug/,                                                                   'no debug message';
-  like $history->[0][0], qr/^[0-9.]+$/, 'right epoch time';
-  is $history->[0][1],   'fatal',       'right level';
-  is $history->[0][2],   'Second',      'right message';
-  is $history->[1][1],   'info',        'right level';
-  is $history->[1][2],   'Fourth',      'right message';
-  is $history->[1][3],   'Fifth',       'right message';
+  like $history->[0][0], qr/^[0-9.]+$/,                                                         'right epoch time';
+  is $history->[0][1], 'fatal',  'right level';
+  is $history->[0][2], 'Second', 'right message';
+  is $history->[1][1], 'info',   'right level';
+  is $history->[1][2], 'Fourth', 'right message';
+  is $history->[1][3], 'Fifth',  'right message';
   ok !$history->[2], 'no more messages';
+};
+
+subtest 'Capturing' => sub {
+  my $log = Mojo::Log->new;
+  is $log->level, 'trace', 'rigth level';
+
+  my $logs = $log->capture;
+  is $log->level, 'trace', 'rigth level';
+  is $logs,       '',      'empty log';
+  is $logs->[0],  undef,   'empty log';
+  undef $logs;
+  is $log->level, 'trace', 'rigth level';
+
+  $logs = $log->capture('info');
+  is $log->level, 'info', 'rigth level';
+  undef $logs;
+  is $log->level, 'trace', 'rigth level';
+
+  $logs = $log->capture;
+  $log->trace('First');
+  $log->debug('Second');
+  $log->fatal('Third');
+  like $logs,      qr/\[trace\].+First\n.+\[debug\].+Second\n.+\[fatal\].+Third\n/, 'right messages';
+  like $logs->[0], qr/First/,                                                       'right message';
+  like $logs->[1], qr/Second/,                                                      'right message';
+  like $logs->[2], qr/Third/,                                                       'right message';
+  is $logs->[3], undef, 'no more messages';
+  undef $logs;
+
+  $logs = $log->capture('info');
+  $log->trace('First');
+  $log->debug('Second');
+  $log->fatal('Third');
+  unlike $logs,    qr/First/,     'no trace messages';
+  unlike $logs,    qr/Second/,    'no debug messages';
+  like $logs,      qr/.+Third\n/, 'right message';
+  like $logs->[0], qr/Third/,     'right message';
+  is $logs->[1], undef, 'no more messages';
+  undef $logs;
+
+  $log  = Mojo::Log->new(short => 1);
+  $logs = $log->capture;
+  $log->trace('First');
+  $log->debug('Second');
+  $log->fatal('Third');
+  like $logs, qr/\[t\].+First\n.+\[d\].+Second\n.+\[f\].+Third\n/, 'right messages';
+  undef $logs;
+
+  $logs = $log->capture;
+  eval { $log->capture };
+  like $@, qr/Log messages are already being captured/, 'right error';
 };
 
 subtest '"trace"' => sub {
@@ -163,10 +214,10 @@ subtest '"debug"' => sub {
   my $log = Mojo::Log->new;
   is $log->level('debug')->level, 'debug', 'right level';
   ok !$log->is_level('trace'), '"trace" log level is inactive';
-  ok $log->is_level('debug'), '"debug" log level is active';
-  ok $log->is_level('info'),  '"info" log level is active';
-  ok $log->is_level('warn'),  '"warn" log level is active';
-  ok $log->is_level('error'), '"error" log level is active';
+  ok $log->is_level('debug'),  '"debug" log level is active';
+  ok $log->is_level('info'),   '"info" log level is active';
+  ok $log->is_level('warn'),   '"warn" log level is active';
+  ok $log->is_level('error'),  '"error" log level is active';
 };
 
 subtest '"info"' => sub {
@@ -174,9 +225,9 @@ subtest '"info"' => sub {
   is $log->level('info')->level, 'info', 'right level';
   ok !$log->is_level('trace'), '"trace" log level is inactive';
   ok !$log->is_level('debug'), '"debug" log level is inactive';
-  ok $log->is_level('info'),  '"info" log level is active';
-  ok $log->is_level('warn'),  '"warn" log level is active';
-  ok $log->is_level('error'), '"error" log level is active';
+  ok $log->is_level('info'),   '"info" log level is active';
+  ok $log->is_level('warn'),   '"warn" log level is active';
+  ok $log->is_level('error'),  '"error" log level is active';
 };
 
 subtest '"warn"' => sub {
@@ -185,8 +236,8 @@ subtest '"warn"' => sub {
   ok !$log->is_level('trace'), '"trace" log level is inactive';
   ok !$log->is_level('debug'), '"debug" log level is inactive';
   ok !$log->is_level('info'),  '"info" log level is inactive';
-  ok $log->is_level('warn'),  '"warn" log level is active';
-  ok $log->is_level('error'), '"error" log level is active';
+  ok $log->is_level('warn'),   '"warn" log level is active';
+  ok $log->is_level('error'),  '"error" log level is active';
 };
 
 subtest '"error"' => sub {
@@ -196,7 +247,7 @@ subtest '"error"' => sub {
   ok !$log->is_level('debug'), '"debug" log level is inactive';
   ok !$log->is_level('info'),  '"info" log level is inactive';
   ok !$log->is_level('warn'),  '"warn" log level is inactive';
-  ok $log->is_level('error'), '"error" log level is active';
+  ok $log->is_level('error'),  '"error" log level is active';
 };
 
 subtest '"fatal"' => sub {

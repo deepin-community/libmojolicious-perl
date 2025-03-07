@@ -24,6 +24,7 @@ use Scalar::Util ();
 
 has commands         => sub { Mojolicious::Commands->new(app => shift) };
 has controller_class => 'Mojolicious::Controller';
+has exception_format => 'html';
 has home             => sub { Mojo::Home->new->detect(ref shift) };
 has log              => sub {
   my $self = shift;
@@ -44,7 +45,7 @@ has secrets            => sub {
   my $self = shift;
 
   # Warn developers about insecure default
-  $self->log->trace('Your secret passphrase needs to be changed');
+  $self->log->trace('Your secret passphrase needs to be changed (see FAQ for more)');
 
   # Default to moniker
   return [$self->moniker];
@@ -56,7 +57,7 @@ has ua        => sub { Mojo::UserAgent->new };
 has validator => sub { Mojolicious::Validator->new };
 
 our $CODENAME = 'Waffle';
-our $VERSION  = '9.22';
+our $VERSION  = '9.39';
 
 sub BUILD_DYNAMIC {
   my ($class, $method, $dyn_methods) = @_;
@@ -105,12 +106,14 @@ sub dispatch {
 
   my $plugins = $self->plugins->emit_hook(before_dispatch => $c);
 
+  my $stash = $c->stash;
+  return if $stash->{'mojo.rendered'};
+
   # Try to find a static file
   my $tx = $c->tx;
   $self->static->dispatch($c) and $plugins->emit_hook(after_static => $c) unless $tx->res->code;
 
   # Start timer (ignore static files)
-  my $stash = $c->stash;
   $c->helpers->log->trace(sub {
     my $req    = $c->req;
     my $method = $req->method;
@@ -121,8 +124,7 @@ sub dispatch {
 
   # Routes
   $plugins->emit_hook(before_routes => $c);
-  $c->helpers->reply->not_found
-    unless $tx->res->code || $self->routes->dispatch($c) || $tx->res->code || $stash->{'mojo.rendered'};
+  $c->helpers->reply->not_found unless $tx->res->code || $self->routes->dispatch($c) || $tx->res->code;
 }
 
 sub handler {
@@ -139,7 +141,8 @@ sub handler {
   $self->plugins->emit_chain(around_dispatch => $c);
 
   # Delayed response
-  $c->helpers->log->trace('Nothing has been rendered, expecting delayed response') unless $c->stash->{'mojo.rendered'};
+  $c->helpers->log->trace('Nothing has been rendered, expecting delayed response (see FAQ for more)')
+    unless $c->stash->{'mojo.rendered'};
 }
 
 sub helper { shift->renderer->add_helper(@_) }
@@ -379,6 +382,13 @@ Command line interface for your application, defaults to a L<Mojolicious::Comman
 Class to be used for the default controller, defaults to L<Mojolicious::Controller>. Note that this class needs to have
 already been loaded before the first request arrives.
 
+=head2 exception_format
+
+  my $format = $app->exception_format;
+  $app       = $app->exception_format('txt');
+
+Format for HTTP exceptions (C<html>, C<json>, or C<txt>), defaults to C<html>.
+
 =head2 home
 
   my $home = $app->home;
@@ -503,6 +513,9 @@ rotating passphrases, just add new ones to the front and remove old ones from th
 Signed cookie based session manager, defaults to a L<Mojolicious::Sessions> object. You can usually leave this alone,
 see L<Mojolicious::Controller/"session"> for more information about working with session data.
 
+  # Enable encrypted sessions
+  $app->sessions->encrypted(1);
+
   # Change name of cookie used for all sessions
   $app->sessions->cookie_name('mysession');
 
@@ -515,6 +528,9 @@ see L<Mojolicious::Controller/"session"> for more information about working with
   $app       = $app->static(Mojolicious::Static->new);
 
 For serving static files from your C<public> directories, defaults to a L<Mojolicious::Static> object.
+
+  # Serve static files only with a "/static" prefix
+  $app->static->prefix('/static');
 
   # Add another "public" directory
   push @{$app->static->paths}, '/home/sri/public';
@@ -743,15 +759,9 @@ The L<Mojolicious> distribution includes a few files with different licenses tha
 
 =head2 Mojolicious Artwork
 
-  Copyright (C) 2010-2021, Sebastian Riedel.
+  Copyright (C) 2010-2024, Sebastian Riedel.
 
 Licensed under the CC-SA License, Version 4.0 L<http://creativecommons.org/licenses/by-sa/4.0>.
-
-=head2 jQuery
-
-  Copyright (C) jQuery Foundation.
-
-Licensed under the MIT License, L<http://creativecommons.org/licenses/MIT>.
 
 =head2 highlight.js
 
@@ -765,6 +775,11 @@ Licensed under the BSD License, L<https://github.com/highlightjs/highlight.js/bl
   Copyright 2011-2020 Twitter, Inc.
 
 Licensed under the MIT License, L<http://creativecommons.org/licenses/MIT>.
+
+=head2 Font Awesome
+
+Licensed under the CC-BY License, Version 4.0 L<https://creativecommons.org/licenses/by/4.0/> and SIL OFL, Version 1.1
+L<https://opensource.org/licenses/OFL-1.1>.
 
 =head1 CODE NAMES
 
@@ -858,6 +873,8 @@ Alex Efros
 Alex Salimon
 
 Alexander Karelas
+
+Alexander Kuehne
 
 Alexey Likhatskiy
 
@@ -969,7 +986,11 @@ Graham Barr
 
 Graham Knop
 
+Heiko Jansen
+
 Henry Tang
+
+Hernan Lopes
 
 Hideki Yamamura
 
@@ -1019,6 +1040,8 @@ Lee Johnson
 
 Leon Brocard
 
+Lukas Mai
+
 Magnus Holm
 
 Maik Fischer
@@ -1063,6 +1086,8 @@ Nils Diewald
 
 Oleg Zhelo
 
+Oliver Kurz
+
 Olivier Mengue
 
 Pascal Gaudette
@@ -1088,6 +1113,8 @@ Quentin Carbonneaux
 Rafal Pocztarski
 
 Randal Schwartz
+
+Rawley Fowler
 
 Richard Elberger
 
@@ -1181,7 +1208,7 @@ Zoffix Znet
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2008-2021, Sebastian Riedel and others.
+Copyright (C) 2008-2024, Sebastian Riedel and others.
 
 This program is free software, you can redistribute it and/or modify it under the terms of the Artistic License version
 2.0.

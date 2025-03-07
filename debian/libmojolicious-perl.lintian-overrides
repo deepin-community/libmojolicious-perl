@@ -6,4 +6,7 @@ libmojolicious-perl: library-package-name-for-application
 libmojolicious-perl: application-in-library-section
 
 # The file is actually needed by the Mojo::Util module
-libmojolicious-perl: package-contains-documentation-outside-usr-share-doc usr/share/perl5/Mojo/resources/html_entities.txt
+libmojolicious-perl: package-contains-documentation-outside-usr-share-doc [usr/share/perl5/Mojo/resources/html_entities.txt]
+
+# False positive from example application folder structure
+libmojolicious-perl: repeated-path-segment login [usr/share/doc/libmojolicious-perl/examples/login/templates/login/]

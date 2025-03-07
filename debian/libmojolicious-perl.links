@@ -1,6 +1,6 @@
-usr/share/javascript/jquery/jquery.min.js                     usr/share/perl5/Mojolicious/resources/public/mojo/jquery/jquery.js
-
 usr/share/javascript/highlight.js/highlight.min.js            usr/share/perl5/Mojolicious/resources/public/mojo/highlight.js/highlight.min.js
 
-usr/share/javascript/bootstrap4/css/bootstrap.min.css         usr/share/perl5/Mojolicious/resources/public/mojo/bootstrap/bootstrap.css
-usr/share/javascript/bootstrap4/js/bootstrap.min.js           usr/share/perl5/Mojolicious/resources/public/mojo/bootstrap/bootstrap.js
+usr/share/javascript/bootstrap5/css/bootstrap.min.css         usr/share/perl5/Mojolicious/resources/public/mojo/bootstrap/bootstrap.css
+usr/share/javascript/bootstrap5/js/bootstrap.min.js           usr/share/perl5/Mojolicious/resources/public/mojo/bootstrap/bootstrap.js
+
+/usr/share/javascript/popper.js/popper.min.js                 usr/share/perl5/Mojolicious/resources/public/mojo/popper/popper.js

@@ -256,6 +256,10 @@ with whatever data you need to generate a response. Once dispatched the whole st
     $self->stash(mymessage => 'Welcome');
   }
 
+You can use L<Mojolicious/"defaults"> to set default stash values that will be available everywhere in the application.
+
+  $app->defaults(mymessage => 'Howdy');
+
 For a full list of reserved stash values see L<Mojolicious::Controller/"stash">.
 
 =head2 Nested routes
@@ -985,7 +989,6 @@ authors.
 =head1 SUPPORT
 
 If you have any questions the documentation might not yet answer, don't hesitate to ask in the
-L<Forum|https://forum.mojolicious.org> or the official IRC channel C<#mojo> on C<irc.libera.chat>
-(L<chat now!|https://web.libera.chat/#mojo>).
+L<Forum|https://forum.mojolicious.org>, or on L<IRC|https://web.libera.chat/#mojo>.
 
 =cut

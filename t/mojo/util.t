@@ -8,11 +8,11 @@ use Mojo::ByteStream qw(b);
 use Mojo::DeprecationTest;
 use Sub::Util qw(subname);
 
-use Mojo::Util qw(b64_decode b64_encode camelize class_to_file class_to_path decamelize decode dumper encode),
-  qw(extract_usage getopt gunzip gzip hmac_sha1_sum html_unescape html_attr_unescape humanize_bytes md5_bytes md5_sum),
-  qw(monkey_patch network_contains punycode_decode punycode_encode quote scope_guard secure_compare sha1_bytes),
-  qw(sha1_sum slugify split_cookie_header split_header steady_time tablify term_escape trim unindent unquote),
-  qw(url_escape url_unescape xml_escape xor_encode);
+use Mojo::Util qw(b64_decode b64_encode camelize class_to_file class_to_path decamelize decode decrypt_cookie dumper),
+  qw(encode encrypt_cookie extract_usage generate_secret getopt gunzip gzip header_params hmac_sha1_sum html_unescape),
+  qw(html_attr_unescape humanize_bytes md5_bytes md5_sum monkey_patch network_contains punycode_decode),
+  qw(punycode_encode quote scope_guard secure_compare sha1_bytes sha1_sum slugify split_cookie_header split_header),
+  qw(steady_time tablify term_escape trim unindent unquote url_escape url_unescape xml_escape xor_encode);
 
 subtest 'camelize' => sub {
   is camelize('foo_bar_baz'), 'FooBarBaz', 'right camelized result';
@@ -52,16 +52,16 @@ subtest 'class_to_path' => sub {
 };
 
 subtest 'split_header' => sub {
-  is_deeply split_header(''),          [], 'right result';
+  is_deeply split_header(''), [], 'right result';
   is_deeply split_header('foo=b=a=r'), [['foo', 'b=a=r']], 'right result';
   is_deeply split_header('a=b ,, , c=d ;; ; e=f g h=i'), [['a', 'b'], ['c', 'd', 'e', 'f', 'g', undef, 'h', 'i']],
     'right result';
-  is_deeply split_header(',,foo,, ,bar'),     [['foo', undef], ['bar', undef]], 'right result';
-  is_deeply split_header(';;foo; ; ;bar'),    [['foo', undef, 'bar', undef]],  'right result';
-  is_deeply split_header('foo=;bar=""'),      [['foo', '', 'bar', '']],        'right result';
-  is_deeply split_header('foo=bar baz=yada'), [['foo', 'bar', 'baz', 'yada']], 'right result';
+  is_deeply split_header(',,foo,, ,bar'),     [['foo', undef], ['bar', undef]],                 'right result';
+  is_deeply split_header(';;foo; ; ;bar'),    [['foo', undef, 'bar', undef]],                   'right result';
+  is_deeply split_header('foo=;bar=""'),      [['foo', '', 'bar', '']],                         'right result';
+  is_deeply split_header('foo=bar baz=yada'), [['foo', 'bar', 'baz', 'yada']],                  'right result';
   is_deeply split_header('foo,bar,baz'),      [['foo', undef], ['bar', undef], ['baz', undef]], 'right result';
-  is_deeply split_header('f "o" o , ba  r'),  [['f', undef, '"o"', undef, 'o', undef], ['ba', undef, 'r', undef]],
+  is_deeply split_header('f "o" o , ba  r'), [['f', undef, '"o"', undef, 'o', undef], ['ba', undef, 'r', undef]],
     'right result';
   is_deeply split_header('foo="b,; a\" r\"\\\\"'), [['foo', 'b,; a" r"\\']], 'right result';
   is_deeply split_header('foo = "b a\" r\"\\\\"; bar="ba z"'), [['foo', 'b a" r"\\', 'bar', 'ba z']], 'right result';
@@ -94,8 +94,20 @@ subtest 'split_cookie_header' => sub {
   is_deeply split_cookie_header($header), $tree, 'right result';
 };
 
+subtest 'header_params' => sub {
+  is_deeply [header_params('')],             [{}, ''], 'right result';
+  is_deeply [header_params('foo=b=a=r')],    [{foo => 'b=a=r'}, ''],      'right result';
+  is_deeply [header_params('a=b; c, d=e')],  [{a   => 'b'},     ', d=e'], 'right result';
+  is_deeply [header_params('a=b; a=c')],     [{a   => 'b'},     ''],      'right result';
+  is_deeply [header_params('a=b; a="c"')],   [{a   => 'b'},     ''],      'right result';
+  is_deeply [header_params('a=b; b="c=d"')], [{a   => 'b', b => 'c=d'}, ''], 'right result';
+  is_deeply [header_params('a=b, c=d')],     [{a   => 'b'}, ', c=d'], 'right result';
+  is_deeply [header_params(q{rel="x"; t*=UTF-8'de'a%20b})], [{rel => 'x', 't*' => "UTF-8'de'a%20b"}, ''],
+    'right result';
+};
+
 subtest 'extract_usage' => sub {
-  is extract_usage, "extract_usage test!\n", 'right result';
+  is extract_usage,                                      "extract_usage test!\n",                  'right result';
   is extract_usage(curfile->sibling('lib', 'myapp.pl')), "USAGE: myapp.pl daemon\n\n test\n123\n", 'right result';
 };
 
@@ -109,12 +121,12 @@ subtest 'getopt' => sub {
   getopt ['--charset', 'UTF-8'], 'c|charset=s' => \my $charset;
   is $charset, 'UTF-8', 'right string';
   my $array = ['-t', 'test', '-h', '--whatever', 'Whatever!', 'stuff'];
-  getopt $array,    ['pass_through'], 't|test=s' => \my $test;
-  is $test,         'test', 'right string';
+  getopt $array, ['pass_through'], 't|test=s' => \my $test;
+  is $test, 'test', 'right string';
   is_deeply $array, ['-h', '--whatever', 'Whatever!', 'stuff'], 'right structure';
-  getopt $array,    'h' => \my $flag, 'w|whatever=s' => \my $whatever;
-  ok $flag,         'flag has been set';
-  is $whatever,     'Whatever!', 'right string';
+  getopt $array, 'h' => \my $flag, 'w|whatever=s' => \my $whatever;
+  ok $flag, 'flag has been set';
+  is $whatever, 'Whatever!', 'right string';
   is_deeply $array, ['stuff'], 'right structure';
   {
     local @ARGV = ('--charset', 'UTF-16', 'test');
@@ -265,8 +277,8 @@ subtest 'xml_escape (nothing to escape)' => sub {
 };
 
 subtest 'xml_escape (XSS)' => sub {
-  is xml_escape('<p>'), '&lt;p&gt;', 'right XSS escaped result';
-  is xml_escape(b('<p>')), '<p>', 'right XSS escaped result';
+  is xml_escape('<p>'),    '&lt;p&gt;', 'right XSS escaped result';
+  is xml_escape(b('<p>')), '<p>',       'right XSS escaped result';
 };
 
 subtest 'punycode_encode' => sub {
@@ -554,7 +566,7 @@ subtest 'network_contains' => sub {
 subtest 'tablify' => sub {
   is tablify([["f\r\no o\r\n", 'bar']]), "fo o  bar\n",      'right result';
   is tablify([["  foo", '  b a r']]),    "  foo    b a r\n", 'right result';
-  is tablify([['foo']]), "foo\n", 'right result';
+  is tablify([['foo']]),                 "foo\n",            'right result';
   is tablify([['foo', 'yada'], ['yada', 'yada']]), "foo   yada\nyada  yada\n", 'right result';
   is tablify([[undef, 'yada'], ['yada', undef]]),  "      yada\nyada  \n",     'right result';
   is tablify([['foo', 'bar', 'baz'], ['yada', 'yada', 'yada']]), "foo   bar   baz\nyada  yada  yada\n", 'right result';
@@ -574,7 +586,7 @@ subtest 'deprecated' => sub {
   ($warn, $die) = ();
   local $ENV{MOJO_FATAL_DEPRECATIONS} = 1;
   ok !eval { Mojo::DeprecationTest::foo() }, 'no result';
-  ok !$warn, 'no warning';
+  ok !$warn,                                 'no warning';
   like $die, qr/foo is DEPRECATED at .*util\.t line \d+/, 'right exception';
 };
 
@@ -597,12 +609,12 @@ subtest 'slugify' => sub {
   is slugify("Un \x{e9}l\x{e9}phant \x{e0} l'or\x{e9}e du bois"), 'un-elephant-a-loree-du-bois', 'right result';
   is slugify("Un \x{e9}l\x{e9}phant \x{e0} l'or\x{e9}e du bois", 1), "un-\x{e9}l\x{e9}phant-\x{e0}-lor\x{e9}e-du-bois",
     'right result';
-  is slugify('Hello, World!'), 'hello-world', 'right result';
-  is slugify('spam & eggs'),   'spam-eggs',   'right result';
-  is slugify('spam & ıçüş', 1),    'spam-ıçüş',  'right result';
-  is slugify('foo ıç bar', 1),     'foo-ıç-bar', 'right result';
-  is slugify('    foo ıç bar', 1), 'foo-ıç-bar', 'right result';
-  is slugify('你好', 1),             '你好',         'right result';
+  is slugify('Hello, World!'),     'hello-world', 'right result';
+  is slugify('spam & eggs'),       'spam-eggs',   'right result';
+  is slugify('spam & ıçüş', 1),    'spam-ıçüş',   'right result';
+  is slugify('foo ıç bar', 1),     'foo-ıç-bar',  'right result';
+  is slugify('    foo ıç bar', 1), 'foo-ıç-bar',  'right result';
+  is slugify('你好', 1),             '你好',          'right result';
 };
 
 subtest 'gzip/gunzip' => sub {
@@ -625,23 +637,44 @@ subtest 'scope_guard' => sub {
 };
 
 subtest 'humanize_bytes' => sub {
-  is humanize_bytes(0),     '0B',     'zero Bytes';
-  is humanize_bytes(1),     '1B',     'one Byte';
-  is humanize_bytes(-1023), '-1023B', 'negative Bytes';
-  is humanize_bytes(1024),  '1KiB',   'one KiB';
-  is humanize_bytes(1025),  '1KiB',   'one KiB';
-  is humanize_bytes(1024 * 1024), '1MiB', 'one MiB';
-  is humanize_bytes(1024 * 1024 * 1024), '1GiB', 'one GiB';
-  is humanize_bytes(1024 * 1024 * 1024 * 1024), '1TiB', 'one TiB';
-  is humanize_bytes(3000),           '2.9KiB',  'almost 3KiB';
-  is humanize_bytes(-3000),          '-2.9KiB', 'almost -3KiB';
-  is humanize_bytes(13443399680),    '13GiB',   'two digits GiB';
-  is humanize_bytes(8007188480),     '7.5GiB',  'smaller GiB';
-  is humanize_bytes(-8007188480),    '-7.5GiB', 'negative smaller GiB';
-  is humanize_bytes(-1099511627776), '-1TiB',   'negative smaller TiB';
-  is humanize_bytes(717946880),      '685MiB',  'large MiB';
-  is humanize_bytes(-717946880),     '-685MiB', 'large negative MiB';
-  is humanize_bytes(245760),         '240KiB',  'less than a MiB';
+  is humanize_bytes( 0),                        '0B',      'zero Bytes';
+  is humanize_bytes( 1),                        '1B',      'one Byte';
+  is humanize_bytes(-1023),                     '-1023B',  'negative Bytes';
+  is humanize_bytes( 1024),                     '1KiB',    'one KiB';
+  is humanize_bytes( 1025),                     '1KiB',    'one KiB';
+  is humanize_bytes(1024 * 1024),               '1MiB',    'one MiB';
+  is humanize_bytes(1024 * 1024 * 1024),        '1GiB',    'one GiB';
+  is humanize_bytes(1024 * 1024 * 1024 * 1024), '1TiB',    'one TiB';
+  is humanize_bytes( 3000),                     '2.9KiB',  'almost 3KiB';
+  is humanize_bytes(-3000),                     '-2.9KiB', 'almost -3KiB';
+  is humanize_bytes( 13443399680),              '13GiB',   'two digits GiB';
+  is humanize_bytes( 8007188480),               '7.5GiB',  'smaller GiB';
+  is humanize_bytes(-8007188480),               '-7.5GiB', 'negative smaller GiB';
+  is humanize_bytes(-1099511627776),            '-1TiB',   'negative smaller TiB';
+  is humanize_bytes( 717946880),                '685MiB',  'large MiB';
+  is humanize_bytes(-717946880),                '-685MiB', 'large negative MiB';
+  is humanize_bytes( 245760),                   '240KiB',  'less than a MiB';
+};
+
+subtest 'encrypt_cookie/decrypt_cookie' => sub {
+  plan skip_all => 'CryptX required!' unless Mojo::Util->CRYPTX;
+
+  subtest 'Roundtrip' => sub {
+    my $encrypted = encrypt_cookie('test', 'foo', 'salt');
+    isnt $encrypted,                              'test', 'encrypted';
+    is decrypt_cookie($encrypted, 'foo', 'salt'), 'test', 'decrypted';
+  };
+
+  is decrypt_cookie('test',                                               'foo', 'salt'), undef,  'not encrypted';
+  is decrypt_cookie('6Y+LKA==-ROhxLDrUBVkXRKTM-v7Qm+Xgoi1t94GLSHYGkaW==', 'foo', 'salt'), undef,  'wrong tag';
+  is decrypt_cookie('6Y+LKA==-ROhxLDrUBVkXRKTm-v7Qm+Xgoi1t94GLSHYGkaw==', 'foo', 'salt'), undef,  'wrong random bytes';
+  is decrypt_cookie('6Y+LKA==-ROhxLDrUBVkXRKTM-v7Qm+Xgoi1t94GLSHYGkaw==', 'bar', 'salt'), undef,  'wrong password';
+  is decrypt_cookie('6Y+LKA==-ROhxLDrUBVkXRKTM-v7Qm+Xgoi1t94GLSHYGkaw==', 'foo', 'bar'),  undef,  'wrong salt';
+  is decrypt_cookie('6Y+LKA==-ROhxLDrUBVkXRKTM-v7Qm+Xgoi1t94GLSHYGkaw==', 'foo', 'salt'), 'test', 'decrypted';
+};
+
+subtest 'generate_secret' => sub {
+  like generate_secret, qr/^[A-Za-z0-9_-]{32,}$/, 'right format';
 };
 
 subtest 'Hide DATA usage from error messages' => sub {

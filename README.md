@@ -7,9 +7,9 @@
 
  [![](https://github.com/mojolicious/mojo/workflows/linux/badge.svg)](https://github.com/mojolicious/mojo/actions) [![](https://github.com/mojolicious/mojo/workflows/macos/badge.svg)](https://github.com/mojolicious/mojo/actions) [![](https://github.com/mojolicious/mojo/workflows/windows/badge.svg)](https://github.com/mojolicious/mojo/actions)
 
-  Mojolicious is a fresh take on Perl web development, based on years of experience developing the Catalyst framework,
-  and utilizing the latest web standards and technologies. You can get started with your project quickly, with a
-  framework that grows with your needs.
+  Mojolicious is a fresh take on **Perl** web development, based on years of experience developing the Catalyst
+  framework, and utilizing the latest web standards and technologies. You can get started with your project quickly,
+  with a framework that grows with your needs.
 
   The Mojo stack provides a consistent set of components that can be used in any project. The guides cover most aspects
   of using the framework and the components have comprehensive reference documentation. Mojolicious is a real-time web
@@ -20,6 +20,7 @@
 
 ## Features
 
+  * Most [popular](https://metacpan.org/favorite/leaderboard) distribution on **CPAN**.
   * An amazing **real-time web framework**, allowing you to easily grow single file prototypes into well-structured MVC
     web applications.
     * Everything you need to build cloud-native web applications for state of the art container environments.
@@ -36,8 +37,8 @@
     * JSON and HTML/XML parser with CSS selector support.
   * Very clean, portable and object-oriented pure-Perl API with no hidden magic and no requirements besides Perl 5.26.0
     (versions as old as 5.16.0 can be used too, but may require additional CPAN modules to be installed)
-  * Fresh code based upon years of experience developing [Catalyst](http://www.catalystframework.org), free and open
-    source.
+  * Also available for [JavaScript](https://mojojs.org).
+  * Fresh code based upon years of experience developing [Catalyst](http://catalyst.perl.org), free and open source.
   * Hundreds of 3rd party [extensions](https://metacpan.org/requires/distribution/Mojolicious) and high quality spin-off
     projects like the [Minion](https://metacpan.org/pod/Minion) job queue.
 
@@ -99,7 +100,7 @@ __DATA__
 @@ index.html.ep
 % my $url = url_for 'title';
 <script>
-  var ws = new WebSocket('<%= $url->to_abs %>');
+  const ws = new WebSocket('<%= $url->to_abs %>');
   ws.onmessage = function (event) { document.body.innerHTML += event.data };
   ws.onopen    = function (event) { ws.send('https://mojolicious.org') };
 </script>

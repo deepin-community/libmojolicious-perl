@@ -17,9 +17,9 @@ package main;
 
 use Test::More;
 use Mojo::ByteStream qw(b);
-use Mojo::JSON qw(decode_json encode_json false from_json j to_json true);
-use Mojo::Util qw(encode);
-use Scalar::Util qw(dualvar);
+use Mojo::JSON       qw(decode_json encode_json false from_json j to_json true);
+use Mojo::Util       qw(encode);
+use Scalar::Util     qw(dualvar);
 
 subtest 'Decode array' => sub {
   my $array = decode_json '[]';
@@ -122,16 +122,16 @@ subtest 'Decode full spec example' => sub {
     }
 }
 EOF
-  is $hash->{Image}{Width},  800,                    'right value';
-  is $hash->{Image}{Height}, 600,                    'right value';
-  is $hash->{Image}{Title},  'View from 15th Floor', 'right value';
+  is $hash->{Image}{Width},             800,                                      'right value';
+  is $hash->{Image}{Height},            600,                                      'right value';
+  is $hash->{Image}{Title},             'View from 15th Floor',                   'right value';
   is $hash->{Image}{Thumbnail}{Url},    'http://www.example.com/image/481989943', 'right value';
   is $hash->{Image}{Thumbnail}{Height}, 125,                                      'right value';
   is $hash->{Image}{Thumbnail}{Width},  100,                                      'right value';
-  is $hash->{Image}{IDs}[0], 116,   'right value';
-  is $hash->{Image}{IDs}[1], 943,   'right value';
-  is $hash->{Image}{IDs}[2], 234,   'right value';
-  is $hash->{Image}{IDs}[3], 38793, 'right value';
+  is $hash->{Image}{IDs}[0],            116,                                      'right value';
+  is $hash->{Image}{IDs}[1],            943,                                      'right value';
+  is $hash->{Image}{IDs}[2],            234,                                      'right value';
+  is $hash->{Image}{IDs}[3],            38793,                                    'right value';
 };
 
 subtest 'Encode array' => sub {
@@ -218,6 +218,14 @@ subtest 'Encode number' => sub {
   is $bytes, '23.3', 'encode 23.3';
 };
 
+subtest 'Encode boolean' => sub {
+  plan skip_all => 'No core boolean support' if !defined &builtin::is_bool;
+  my $bytes = encode_json [!!1];
+  is $bytes, '[true]', 'encode [!!1]';
+  $bytes = encode_json [!!0];
+  is $bytes, '[false]', 'encode [!!0]';
+};
+
 subtest 'Faihu roundtrip' => sub {
   my $bytes = j(["\x{10346}"]);
   is b($bytes)->decode('UTF-8'), "[\"\x{10346}\"]", 'encode ["\x{10346}"]';
@@ -293,10 +301,10 @@ subtest 'Boolean shortcut' => sub {
 
 subtest 'Booleans in different contexts' => sub {
   ok true, 'true';
-  is true, 1, 'right string value';
+  is true,     1, 'right string value';
   is true + 0, 1, 'right numeric value';
   ok !false, 'false';
-  is false, 0, 'right string value';
+  is false,     0, 'right string value';
   is false + 0, 0, 'right numeric value';
 };
 
@@ -335,7 +343,7 @@ subtest 'Ensure numbers and strings are not upgraded' => sub {
 };
 
 subtest '"inf" and "nan"' => sub {
-  like encode_json({test => 9**9**9}), qr/^{"test":".*"}$/, 'encode "inf" as string';
+  like encode_json({test => 9**9**9}),       qr/^{"test":".*"}$/, 'encode "inf" as string';
   like encode_json({test => -sin(9**9**9)}), qr/^{"test":".*"}$/, 'encode "nan" as string';
 };
 
