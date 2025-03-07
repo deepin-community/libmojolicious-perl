@@ -122,6 +122,12 @@ get '/reuse/exception' => {foo => 'bar'} => sub { die "Reusable exception.\n" };
 
 get '/custom' => sub { die "CUSTOM\n" };
 
+get '/txt/exception' => sub {
+  my $c = shift;
+  $c->exception_format('txt')->res->headers->header('X-Text' => $c->exception_format);
+  die 'Text exception';
+};
+
 get '/dead_helper';
 
 my $t = Test::Mojo->new;
@@ -283,15 +289,53 @@ subtest 'Reuse exception' => sub {
   ok !$exception, 'no exception';
   ok !$snapshot,  'no snapshot';
   $t->get_ok('/reuse/exception')->status_is(500)->content_like(qr/Reusable exception/);
-  isa_ok $exception, 'Mojo::Exception',      'right exception';
-  like $exception,   qr/Reusable exception/, 'right message';
+  isa_ok $exception, 'Mojo::Exception', 'right exception';
+  like $exception, qr/Reusable exception/, 'right message';
   is $snapshot->{foo}, 'bar', 'right snapshot value';
   ok !$snapshot->{exception}, 'no exception in snapshot';
 };
 
-subtest 'Bundled static files' => sub {
-  $t->get_ok('/mojo/jquery/jquery.js')->status_is(200)->content_type_is('application/javascript');
+subtest 'JSON exceptions' => sub {
+  $t->app->mode('development');
+  is $t->app->exception_format('json')->exception_format, 'json', 'right exception format';
+  $t->get_ok('/dead_template')->status_is(500)->content_type_is('application/json;charset=UTF-8')
+    ->json_like('/error', qr/dead template!/);
+  $t->get_ok('/does_not_exist')->status_is(404)->content_type_is('application/json;charset=UTF-8')
+    ->json_is({error => 'Not Found'});
+  my $stash;
+  $t->app->hook(after_dispatch => sub { $stash = shift->stash });
+  $t->get_ok('/txt/exception')->status_is(500)->header_is('X-Text' => 'txt')
+    ->content_type_is('text/plain;charset=UTF-8')->content_like(qr/Text exception/);
+  ok $stash->{exception}, 'exception exists in stash';
+  isa_ok $stash->{exception}, 'Mojo::Exception', 'is stash exception correct type?';
 
+  $t->app->mode('production');
+  $t->get_ok('/dead_template')->status_is(500)->content_type_is('application/json;charset=UTF-8')
+    ->json_is({error => 'Internal Server Error'});
+  $t->get_ok('/does_not_exist')->status_is(404)->content_type_is('application/json;charset=UTF-8')
+    ->json_is({error => 'Not Found'});
+};
+
+subtest 'Text exceptions' => sub {
+  $t->app->mode('development');
+  is $t->app->exception_format('txt')->exception_format, 'txt', 'right exception format';
+  $t->get_ok('/dead_template')->status_is(500)->content_type_is('text/plain;charset=UTF-8')
+    ->content_like(qr/dead template!/);
+  $t->get_ok('/does_not_exist')->status_is(404)->content_type_is('text/plain;charset=UTF-8')->content_is('Not Found');
+  my $stash;
+  $t->app->hook(after_dispatch => sub { $stash = shift->stash });
+  $t->get_ok('/txt/exception')->status_is(500)->header_is('X-Text' => 'txt')
+    ->content_type_is('text/plain;charset=UTF-8')->content_like(qr/Text exception/);
+  ok $stash->{exception}, 'exception exists in stash';
+  isa_ok $stash->{exception}, 'Mojo::Exception', 'is stash exception correct type?';
+
+  $t->app->mode('production');
+  $t->get_ok('/dead_template')->status_is(500)->content_type_is('text/plain;charset=UTF-8')
+    ->content_is('Internal Server Error');
+  $t->get_ok('/does_not_exist')->status_is(404)->content_type_is('text/plain;charset=UTF-8')->content_is('Not Found');
+};
+
+subtest 'Bundled static files' => sub {
   $t->get_ok('/mojo/highlight.js/highlight.min.js')->status_is(200)->content_type_is('application/javascript');
   $t->get_ok('/mojo/highlight.js/mojolicious.min.js')->status_is(200)->content_type_is('application/javascript');
   $t->get_ok('/mojo/highlight.js/highlight-mojo-dark.css')->status_is(200)->content_type_is('text/css');

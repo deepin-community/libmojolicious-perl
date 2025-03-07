@@ -9,16 +9,16 @@ use Mojo::File qw(path tempdir);
 
 subtest 'File asset' => sub {
   my $file = Mojo::Asset::File->new;
-  is $file->size, 0, 'file is empty';
+  is $file->size,                           0, 'file is empty';
   is $file->mtime, (stat $file->handle)[9], 'right mtime';
-  is $file->slurp, '', 'file is empty';
+  is $file->slurp,                          '', 'file is empty';
   $file->add_chunk('abc');
-  is $file->contains('abc'), 0,  '"abc" at position 0';
-  is $file->contains('bc'),  1,  '"bc" at position 1';
+  is $file->contains('abc'),  0, '"abc" at position 0';
+  is $file->contains('bc'),   1, '"bc" at position 1';
   is $file->contains('db'),  -1, 'does not contain "db"';
-  is $file->size, 3, 'right size';
+  is $file->size,             3, 'right size';
   is $file->mtime, (stat $file->handle)[9], 'right mtime';
-  is $file->to_file, $file, 'same object';
+  is $file->to_file,                        $file, 'same object';
 
   my $path = $file->path;
   ok -e $path, 'temporary file exists';
@@ -29,12 +29,12 @@ subtest 'File asset' => sub {
 subtest 'Memory asset' => sub {
   my $mem = Mojo::Asset::Memory->new;
   $mem->add_chunk('abc');
-  is $mem->contains('abc'), 0,  '"abc" at position 0';
-  is $mem->contains('bc'),  1,  '"bc" at position 1';
-  is $mem->contains('db'),  -1, 'does not contain "db"';
-  is $mem->size,  3, 'right size';
-  is $mem->mtime, $^T, 'right mtime';
-  is $mem->mtime, Mojo::Asset::Memory->new->mtime, 'same mtime';
+  is $mem->contains('abc'),  0,                              '"abc" at position 0';
+  is $mem->contains('bc'),   1,                              '"bc" at position 1';
+  is $mem->contains('db'),  -1,                              'does not contain "db"';
+  is $mem->size,             3,                              'right size';
+  is $mem->mtime,           $^T,                             'right mtime';
+  is $mem->mtime,           Mojo::Asset::Memory->new->mtime, 'same mtime';
   my $mtime = $mem->mtime;
   is $mem->mtime($mtime + 23)->mtime, $mtime + 23, 'right mtime';
 };
@@ -53,17 +53,17 @@ subtest 'Asset upgrade from memory to file' => sub {
 
 subtest 'Empty file asset' => sub {
   my $file = Mojo::Asset::File->new;
-  is $file->size, 0, 'asset is empty';
-  is $file->get_chunk(0), '', 'no content';
-  is $file->slurp, '', 'no content';
+  is $file->size,          0,  'asset is empty';
+  is $file->get_chunk(0),  '', 'no content';
+  is $file->slurp,         '', 'no content';
   is $file->contains('a'), -1, 'does not contain "a"';
 };
 
 subtest 'Empty memory asset' => sub {
   my $mem = Mojo::Asset::Memory->new;
-  is $mem->size, 0, 'asset is empty';
+  is $mem->size,         0,  'asset is empty';
   is $mem->get_chunk(0), '', 'no content';
-  is $mem->slurp, '', 'no content';
+  is $mem->slurp,        '', 'no content';
   ok !$mem->is_range, 'no range';
   is $mem->contains('a'), -1, 'does not contain "a"';
 };
@@ -72,9 +72,9 @@ subtest 'File asset range support (a[bcdefabc])' => sub {
   my $file = Mojo::Asset::File->new(start_range => 1);
   ok $file->is_range, 'has range';
   $file->add_chunk('abcdefabc');
-  is $file->contains('bcdef'), 0,  '"bcdef" at position 0';
-  is $file->contains('cdef'),  1,  '"cdef" at position 1';
-  is $file->contains('abc'),   5,  '"abc" at position 5';
+  is $file->contains('bcdef'),  0, '"bcdef" at position 0';
+  is $file->contains('cdef'),   1, '"cdef" at position 1';
+  is $file->contains('abc'),    5, '"abc" at position 5';
   is $file->contains('db'),    -1, 'does not contain "db"';
 };
 
@@ -82,9 +82,9 @@ subtest 'Memory asset range support (a[bcdefabc])' => sub {
   my $mem = Mojo::Asset::Memory->new(start_range => 1);
   ok $mem->is_range, 'has range';
   $mem->add_chunk('abcdefabc');
-  is $mem->contains('bcdef'), 0,  '"bcdef" at position 0';
-  is $mem->contains('cdef'),  1,  '"cdef" at position 1';
-  is $mem->contains('abc'),   5,  '"abc" at position 5';
+  is $mem->contains('bcdef'),  0, '"bcdef" at position 0';
+  is $mem->contains('cdef'),   1, '"cdef" at position 1';
+  is $mem->contains('abc'),    5, '"abc" at position 5';
   is $mem->contains('db'),    -1, 'does not contain "db"';
 };
 
@@ -92,37 +92,37 @@ subtest 'File asset range support (ab[cdefghi]jk)' => sub {
   my $file = Mojo::Asset::File->new(start_range => 2, end_range => 8);
   ok $file->is_range, 'has range';
   $file->add_chunk('abcdefghijk');
-  is $file->contains('cdefghi'), 0,         '"cdefghi" at position 0';
-  is $file->contains('fghi'),    3,         '"fghi" at position 3';
-  is $file->contains('f'),       3,         '"f" at position 3';
-  is $file->contains('hi'),      5,         '"hi" at position 5';
+  is $file->contains('cdefghi'),  0,        '"cdefghi" at position 0';
+  is $file->contains('fghi'),     3,        '"fghi" at position 3';
+  is $file->contains('f'),        3,        '"f" at position 3';
+  is $file->contains('hi'),       5,        '"hi" at position 5';
   is $file->contains('db'),      -1,        'does not contain "db"';
   is $file->get_chunk(0),        'cdefghi', 'chunk from position 0';
   is $file->get_chunk(1),        'defghi',  'chunk from position 1';
   is $file->get_chunk(5),        'hi',      'chunk from position 5';
-  is $file->get_chunk(0, 2), 'cd',  'chunk from position 0 (2 bytes)';
-  is $file->get_chunk(1, 3), 'def', 'chunk from position 1 (3 bytes)';
-  is $file->get_chunk(5, 1), 'h',   'chunk from position 5 (1 byte)';
-  is $file->get_chunk(5, 3), 'hi',  'chunk from position 5 (2 byte)';
+  is $file->get_chunk(0, 2),     'cd',      'chunk from position 0 (2 bytes)';
+  is $file->get_chunk(1, 3),     'def',     'chunk from position 1 (3 bytes)';
+  is $file->get_chunk(5, 1),     'h',       'chunk from position 5 (1 byte)';
+  is $file->get_chunk(5, 3),     'hi',      'chunk from position 5 (2 byte)';
 };
 
 subtest 'Memory asset range support (ab[cdefghi]jk)' => sub {
   my $mem = Mojo::Asset::Memory->new(start_range => 2, end_range => 8);
   ok $mem->is_range, 'has range';
   $mem->add_chunk('abcdefghijk');
-  is $mem->contains('cdefghi'), 0,         '"cdefghi" at position 0';
-  is $mem->contains('fghi'),    3,         '"fghi" at position 3';
-  is $mem->contains('f'),       3,         '"f" at position 3';
-  is $mem->contains('hi'),      5,         '"hi" at position 5';
+  is $mem->contains('cdefghi'),  0,        '"cdefghi" at position 0';
+  is $mem->contains('fghi'),     3,        '"fghi" at position 3';
+  is $mem->contains('f'),        3,        '"f" at position 3';
+  is $mem->contains('hi'),       5,        '"hi" at position 5';
   is $mem->contains('ij'),      -1,        'does not contain "ij"';
   is $mem->contains('db'),      -1,        'does not contain "db"';
   is $mem->get_chunk(0),        'cdefghi', 'chunk from position 0';
   is $mem->get_chunk(1),        'defghi',  'chunk from position 1';
   is $mem->get_chunk(5),        'hi',      'chunk from position 5';
-  is $mem->get_chunk(0, 2), 'cd',  'chunk from position 0 (2 bytes)';
-  is $mem->get_chunk(1, 3), 'def', 'chunk from position 1 (3 bytes)';
-  is $mem->get_chunk(5, 1), 'h',   'chunk from position 5 (1 byte)';
-  is $mem->get_chunk(5, 3), 'hi',  'chunk from position 5 (2 byte)';
+  is $mem->get_chunk(0, 2),     'cd',      'chunk from position 0 (2 bytes)';
+  is $mem->get_chunk(1, 3),     'def',     'chunk from position 1 (3 bytes)';
+  is $mem->get_chunk(5, 1),     'h',       'chunk from position 5 (1 byte)';
+  is $mem->get_chunk(5, 3),     'hi',      'chunk from position 5 (2 byte)';
 };
 
 subtest 'Huge file asset' => sub {
@@ -132,16 +132,16 @@ subtest 'Huge file asset' => sub {
   $file->add_chunk('b');
   $file->add_chunk('c' x 131072);
   $file->add_chunk('ddd');
-  is $file->contains('a'),    0,      '"a" at position 0';
-  is $file->contains('b'),    131072, '"b" at position 131072';
-  is $file->contains('c'),    131073, '"c" at position 131073';
-  is $file->contains('abc'),  131071, '"abc" at position 131071';
-  is $file->contains('ccdd'), 262143, '"ccdd" at position 262143';
-  is $file->contains('dd'),   262145, '"dd" at position 262145';
-  is $file->contains('ddd'),  262145, '"ddd" at position 262145';
-  is $file->contains('e'),    -1,     'does not contain "e"';
-  is $file->contains('a' x 131072), 0,      '"a" x 131072 at position 0';
-  is $file->contains('c' x 131072), 131073, '"c" x 131072 at position 131073';
+  is $file->contains('a'),                          0,      '"a" at position 0';
+  is $file->contains('b'),                          131072, '"b" at position 131072';
+  is $file->contains('c'),                          131073, '"c" at position 131073';
+  is $file->contains('abc'),                        131071, '"abc" at position 131071';
+  is $file->contains('ccdd'),                       262143, '"ccdd" at position 262143';
+  is $file->contains('dd'),                         262145, '"dd" at position 262145';
+  is $file->contains('ddd'),                        262145, '"ddd" at position 262145';
+  is $file->contains('e'),                          -1,     'does not contain "e"';
+  is $file->contains('a' x 131072),                 0,      '"a" x 131072 at position 0';
+  is $file->contains('c' x 131072),                 131073, '"c" x 131072 at position 131073';
   is $file->contains('b' . ('c' x 131072) . "ddd"), 131072, '"b" . ("c" x 131072) . "ddd" at position 131072';
 };
 
@@ -151,14 +151,14 @@ subtest 'Huge file asset with range' => sub {
   $file->add_chunk('b');
   $file->add_chunk('c' x 131072);
   $file->add_chunk('ddd');
-  is $file->contains('a'),    0,      '"a" at position 0';
-  is $file->contains('b'),    131071, '"b" at position 131071';
-  is $file->contains('c'),    131072, '"c" at position 131072';
-  is $file->contains('abc'),  131070, '"abc" at position 131070';
-  is $file->contains('ccdd'), 262142, '"ccdd" at position 262142';
-  is $file->contains('dd'),   262144, '"dd" at position 262144';
-  is $file->contains('ddd'),  -1,     'does not contain "ddd"';
-  is $file->contains('b' . ('c' x 131072) . 'ddd'), -1, 'does not contain "b" . ("c" x 131072) . "ddd"';
+  is $file->contains('a'),                          0,      '"a" at position 0';
+  is $file->contains('b'),                          131071, '"b" at position 131071';
+  is $file->contains('c'),                          131072, '"c" at position 131072';
+  is $file->contains('abc'),                        131070, '"abc" at position 131070';
+  is $file->contains('ccdd'),                       262142, '"ccdd" at position 262142';
+  is $file->contains('dd'),                         262144, '"dd" at position 262144';
+  is $file->contains('ddd'),                        -1,     'does not contain "ddd"';
+  is $file->contains('b' . ('c' x 131072) . 'ddd'), -1,     'does not contain "b" . ("c" x 131072) . "ddd"';
 };
 
 subtest 'Move memory asset to file' => sub {
@@ -169,13 +169,13 @@ subtest 'Move memory asset to file' => sub {
   undef $tmp;
   ok !-e $path, 'file has been cleaned up';
   is $mem->move_to($path)->slurp, 'abc', 'right content';
-  ok -e $path, 'file exists';
+  ok -e $path,      'file exists';
   ok unlink($path), 'unlinked file';
-  ok !-e $path, 'file has been cleaned up';
+  ok !-e $path,     'file has been cleaned up';
   is(Mojo::Asset::Memory->new->move_to($path)->slurp, '', 'no content');
-  ok -e $path, 'file exists';
+  ok -e $path,      'file exists';
   ok unlink($path), 'unlinked file';
-  ok !-e $path, 'file has been cleaned up';
+  ok !-e $path,     'file has been cleaned up';
 };
 
 subtest 'Move file asset to file' => sub {
@@ -190,13 +190,13 @@ subtest 'Move file asset to file' => sub {
   ok !-e $path, 'file has been cleaned up';
   is $file->move_to($path)->slurp, 'bcd', 'right content';
   undef $file;
-  ok -e $path, 'file exists';
+  ok -e $path,      'file exists';
   ok unlink($path), 'unlinked file';
-  ok !-e $path, 'file has been cleaned up';
+  ok !-e $path,     'file has been cleaned up';
   is(Mojo::Asset::File->new->move_to($path)->slurp, '', 'no content');
-  ok -e $path, 'file exists';
+  ok -e $path,      'file exists';
   ok unlink($path), 'unlinked file';
-  ok !-e $path, 'file has been cleaned up';
+  ok !-e $path,     'file has been cleaned up';
 };
 
 subtest 'Upgrade' => sub {
@@ -204,7 +204,7 @@ subtest 'Upgrade' => sub {
   my $upgrade;
   $asset->on(upgrade => sub { $upgrade++ });
   $asset = $asset->add_chunk('lala');
-  ok !$upgrade, 'upgrade event has not been emitted';
+  ok !$upgrade,        'upgrade event has not been emitted';
   ok !$asset->is_file, 'stored in memory';
   $asset = $asset->add_chunk('lala');
   is $upgrade, 1, 'upgrade event has been emitted once';
@@ -212,7 +212,7 @@ subtest 'Upgrade' => sub {
   $asset = $asset->add_chunk('lala');
   is $upgrade, 1, 'upgrade event was not emitted again';
   ok $asset->is_file, 'stored in file';
-  is $asset->slurp,   'lalalalalala', 'right content';
+  is $asset->slurp, 'lalalalalala', 'right content';
   ok $asset->cleanup, 'file will be cleaned up';
   $asset = Mojo::Asset::Memory->new(max_memory_size => 5);
   $asset = $asset->add_chunk('lala');
@@ -232,8 +232,8 @@ subtest 'Change temporary directory during upgrade' => sub {
   );
   my $file = $mem->add_chunk('aaaaaaaaaaa');
   ok $file->is_file, 'stored in file';
-  is $file->slurp, 'aaaaaaaaaaa', 'right content';
-  is path($file->path)->dirname, $tmpdir, 'right directory';
+  is $file->slurp,               'aaaaaaaaaaa', 'right content';
+  is path($file->path)->dirname, $tmpdir,       'right directory';
 };
 
 subtest 'Temporary directory' => sub {
@@ -241,8 +241,8 @@ subtest 'Temporary directory' => sub {
   my $file = Mojo::Asset::File->new;
   is($file->tmpdir, $tmpdir, 'same directory');
   $file->add_chunk('works!');
-  is $file->slurp, 'works!', 'right content';
-  is path($file->path)->dirname, $tmpdir, 'same directory';
+  is $file->slurp,               'works!', 'right content';
+  is path($file->path)->dirname, $tmpdir,  'same directory';
 };
 
 subtest 'Custom temporary file' => sub {
@@ -262,15 +262,15 @@ subtest 'Custom temporary file' => sub {
 subtest 'Temporary file without cleanup' => sub {
   my $file = Mojo::Asset::File->new(cleanup => 0)->add_chunk('test');
   ok $file->is_file, 'stored in file';
-  is $file->slurp,   'test', 'right content';
-  is $file->size,    4,      'right size';
+  is $file->slurp,                          'test', 'right content';
+  is $file->size,                           4,      'right size';
   is $file->mtime, (stat $file->handle)[9], 'right mtime';
-  is $file->contains('es'), 1, '"es" at position 1';
+  is $file->contains('es'),                 1, '"es" at position 1';
   my $path = $file->path;
   undef $file;
-  ok -e $path, 'file exists';
+  ok -e $path,      'file exists';
   ok unlink($path), 'unlinked file';
-  ok !-e $path, 'file has been cleaned up';
+  ok !-e $path,     'file has been cleaned up';
 };
 
 subtest 'Incomplete write' => sub {
@@ -293,6 +293,19 @@ subtest 'Forked process' => sub {
   is $file->slurp, 'Fork test!', 'right content';
   undef $file;
   ok !-e $path, 'file has been cleaned up';
+};
+
+subtest 'Upgrade with missing temporary directory' => sub {
+  my $tmpdir = tempdir;
+  local $ENV{MOJO_TMPDIR} = $tmpdir->child('does_not_exist');
+  my $mem = Mojo::Asset::Memory->new(max_memory_size => 10, auto_upgrade => 1);
+  $mem->add_chunk('abcdef');
+  eval { $mem->add_chunk('ghijkl') };
+  like $@, qr/does not exist/, 'right error';
+  is $mem->slurp, 'abcdef', 'no memory leak';
+  eval { $mem->add_chunk('g') };
+  like $@, qr/Asset has been upgraded and is now frozen/, 'right error';
+  is $mem->slurp, 'abcdef', 'asset is frozen';
 };
 
 subtest 'Abstract methods' => sub {

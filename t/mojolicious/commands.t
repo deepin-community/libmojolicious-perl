@@ -106,14 +106,14 @@ subtest 'Commands starting with a dash are not allowed' => sub {
   local $ENV{PLACK_ENV} = 'testing';
   local @ARGV = qw(psgi -m production);
   is ref Mojolicious::Commands->start_app('MojoliciousTest'), 'CODE', 'right reference';
-  is $ENV{MOJO_MODE}, undef, 'no mode';
+  is $ENV{MOJO_MODE},                                         undef,  'no mode';
 }
 
 # mojo
 is_deeply $commands->namespaces, ['Mojolicious::Command::Author', 'Mojolicious::Command'], 'right namespaces';
-ok $commands->description,       'has a description';
-like $commands->message,         qr/COMMAND/, 'has a message';
-like $commands->hint,            qr/help/,    'has a hint';
+ok $commands->description, 'has a description';
+like $commands->message, qr/COMMAND/, 'has a message';
+like $commands->hint,    qr/help/,    'has a hint';
 $buffer = '';
 {
   open my $handle, '>', \$buffer;
@@ -347,9 +347,9 @@ like $buffer, qr/Unknown option: unknown/, 'right output';
 require Mojolicious::Command::Author::generate;
 my $generator = Mojolicious::Command::Author::generate->new;
 is_deeply $generator->namespaces, ['Mojolicious::Command::Author::generate'], 'right namespaces';
-ok $generator->description,       'has a description';
-like $generator->message,         qr/generate/, 'has a message';
-like $generator->hint,            qr/help/,     'has a hint';
+ok $generator->description, 'has a description';
+like $generator->message, qr/generate/, 'has a message';
+like $generator->hint,    qr/help/,     'has a hint';
 $buffer = '';
 {
   open my $handle, '>', \$buffer;
@@ -379,6 +379,7 @@ ok -e $app->rel_file('my_app/lib/MyApp.pm'),                      'application c
 ok -e $app->rel_file('my_app/lib/MyApp/Controller/Example.pm'),   'controller exists';
 ok -e $app->rel_file('my_app/my_app.yml'),                        'config file exists';
 ok -e $app->rel_file('my_app/t/basic.t'),                         'test exists';
+ok -d $app->rel_file('my_app/public/assets'),                     'assets directory exists';
 ok -e $app->rel_file('my_app/public/index.html'),                 'static file exists';
 ok -e $app->rel_file('my_app/templates/layouts/default.html.ep'), 'layout exists';
 ok -e $app->rel_file('my_app/templates/example/welcome.html.ep'), 'template exists';

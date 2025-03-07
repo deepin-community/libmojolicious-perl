@@ -1,16 +1,22 @@
 package Mojo::JSON;
 use Mojo::Base -strict;
 
-use Carp qw(croak);
-use Exporter qw(import);
-use JSON::PP ();
-use Mojo::Util qw(decode encode monkey_patch);
+use Carp         qw(croak);
+use Exporter     qw(import);
+use JSON::PP     ();
+use Mojo::Util   qw(decode encode monkey_patch);
 use Scalar::Util qw(blessed);
 
 # For better performance Cpanel::JSON::XS is required
 use constant JSON_XS => $ENV{MOJO_NO_JSON_XS}
   ? 0
-  : eval { require Cpanel::JSON::XS; Cpanel::JSON::XS->VERSION('4.09'); 1 };
+  : !!eval { require Cpanel::JSON::XS; Cpanel::JSON::XS->VERSION('4.09'); 1 };
+
+use constant CORE_BOOLS => defined &builtin::is_bool;
+
+BEGIN {
+  warnings->unimport('experimental::builtin') if CORE_BOOLS;
+}
 
 our @EXPORT_OK = qw(decode_json encode_json false from_json j to_json true);
 
@@ -49,7 +55,7 @@ sub from_json {
 
 sub j {
   return encode_json($_[0]) if ref $_[0] eq 'ARRAY' || ref $_[0] eq 'HASH';
-  return eval { decode_json($_[0]) };
+  return scalar eval { decode_json($_[0]) };
 }
 
 sub to_json { _encode_value(shift) }
@@ -249,6 +255,9 @@ sub _encode_value {
 
   # Null
   return 'null' unless defined $value;
+
+  # Boolean
+  return $value ? 'true' : 'false' if CORE_BOOLS && builtin::is_bool($value);
 
   # Number
   no warnings 'numeric';

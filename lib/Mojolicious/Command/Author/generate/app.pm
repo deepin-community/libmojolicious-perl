@@ -31,6 +31,7 @@ sub run {
 
   # Static file
   $self->render_to_rel_file('static', "$name/public/index.html");
+  $self->create_dir("$name/public/assets");
 
   # Templates
   $self->render_to_rel_file('layout',  "$name/templates/layouts/default.html.ep");
@@ -195,7 +196,7 @@ done_testing();
 </p>
 
 @@ config
-% use Mojo::Util qw(sha1_sum steady_time);
+% use Mojo::Util qw(generate_secret);
 ---
 secrets:
-  - <%= sha1_sum $$ . steady_time . rand  %>
+  - <%= generate_secret() %>

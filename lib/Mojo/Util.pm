@@ -1,28 +1,39 @@
 package Mojo::Util;
 use Mojo::Base -strict;
 
-use Carp qw(carp croak);
-use Data::Dumper ();
-use Digest::MD5 qw(md5 md5_hex);
-use Digest::SHA qw(hmac_sha1_hex sha1 sha1_hex);
-use Encode qw(find_encoding);
-use Exporter qw(import);
+use Carp           qw(carp croak);
+use Data::Dumper   ();
+use Digest::MD5    qw(md5 md5_hex);
+use Digest::SHA    qw(hmac_sha1_hex sha1 sha1_hex);
+use Encode         qw(find_encoding);
+use Exporter       qw(import);
 use File::Basename qw(dirname);
-use Getopt::Long qw(GetOptionsFromArray);
+use Getopt::Long   qw(GetOptionsFromArray);
 use IO::Compress::Gzip;
 use IO::Poll qw(POLLIN POLLPRI);
 use IO::Uncompress::Gunzip;
-use List::Util qw(min);
-use MIME::Base64 qw(decode_base64 encode_base64);
-use Pod::Usage qw(pod2usage);
-use Socket qw(inet_pton AF_INET6 AF_INET);
-use Sub::Util qw(set_subname);
-use Symbol qw(delete_package);
+use List::Util         qw(min);
+use MIME::Base64       qw(decode_base64 encode_base64);
+use Mojo::BaseUtil     qw(class_to_path monkey_patch);
+use Pod::Usage         qw(pod2usage);
+use Socket             qw(inet_pton AF_INET6 AF_INET);
+use Symbol             qw(delete_package);
 use Time::HiRes        ();
 use Unicode::Normalize ();
 
+# Encryption support requires CryptX 0.080+
+use constant CRYPTX => $ENV{MOJO_NO_CRYPTX} ? 0 : !!(eval {
+  require CryptX;
+  require Crypt::AuthEnc::ChaCha20Poly1305;
+  require Crypt::KeyDerivation;
+  require Crypt::Misc;
+  require Crypt::PRNG;
+  CryptX->VERSION('0.080');
+  1;
+});
+
 # Check for monotonic clock support
-use constant MONOTONIC => eval { !!Time::HiRes::clock_gettime(Time::HiRes::CLOCK_MONOTONIC()) };
+use constant MONOTONIC => !!eval { Time::HiRes::clock_gettime(Time::HiRes::CLOCK_MONOTONIC()) };
 
 # Punycode bootstring parameters
 use constant {
@@ -57,18 +68,22 @@ my %XML = ('&' => '&amp;', '<' => '&lt;', '>' => '&gt;', '"' => '&quot;', '\'' =
 # "Sun, 06 Nov 1994 08:49:37 GMT" and "Sunday, 06-Nov-94 08:49:37 GMT"
 my $EXPIRES_RE = qr/(\w+\W+\d+\W+\w+\W+\d+\W+\d+:\d+:\d+\W*\w+)/;
 
+# Header key/value pairs
+my $QUOTED_VALUE_RE   = qr/\G=\s*("(?:\\\\|\\"|[^"])*")/;
+my $UNQUOTED_VALUE_RE = qr/\G=\s*([^;, ]*)/;
+
 # HTML entities
 my $ENTITY_RE = qr/&(?:\#((?:[0-9]{1,7}|x[0-9a-fA-F]{1,6}));|(\w+[;=]?))/;
 
-# Encoding and pattern cache
-my (%ENCODING, %PATTERN);
+# Encoding, encryption and pattern caches
+my (%ENCODING, %ENCRYPTION, %PATTERN);
 
 our @EXPORT_OK = (
-  qw(b64_decode b64_encode camelize class_to_file class_to_path decamelize decode deprecated dumper encode),
-  qw(extract_usage getopt gunzip gzip hmac_sha1_sum html_attr_unescape html_unescape humanize_bytes md5_bytes md5_sum),
-  qw(monkey_patch network_contains punycode_decode punycode_encode quote scope_guard secure_compare sha1_bytes),
-  qw(sha1_sum slugify split_cookie_header split_header steady_time tablify term_escape trim unindent unquote),
-  qw(url_escape url_unescape xml_escape xor_encode)
+  qw(b64_decode b64_encode camelize class_to_file class_to_path decamelize decode decrypt_cookie deprecated dumper),
+  qw(encode encrypt_cookie extract_usage generate_secret getopt gunzip gzip header_params hmac_sha1_sum),
+  qw(html_attr_unescape html_unescape humanize_bytes md5_bytes md5_sum monkey_patch network_contains punycode_decode),
+  qw(punycode_encode quote scope_guard secure_compare sha1_bytes sha1_sum slugify split_cookie_header split_header),
+  qw(steady_time tablify term_escape trim unindent unquote url_escape url_unescape xml_escape xor_encode)
 );
 
 # Aliases
@@ -101,8 +116,6 @@ sub class_to_file {
   return decamelize($class);
 }
 
-sub class_to_path { join '.', join('/', split(/::|'/, shift)), 'pm' }
-
 sub decamelize {
   my $str = shift;
   return $str if $str !~ /^[A-Z]/;
@@ -111,6 +124,18 @@ sub decamelize {
   return join '-', map {
     join('_', map {lc} grep {length} split /([A-Z]{1}[^A-Z]*)/)
   } split /::/, $str;
+}
+
+sub decrypt_cookie {
+  my ($value, $key, $salt) = @_;
+  croak 'CryptX 0.080+ required for encrypted cookie support' unless CRYPTX;
+
+  return undef unless $value =~ /^([^-]+)-([^-]+)-([^-]+)$/;
+  my ($ct, $iv, $tag) = ($1, $2, $3);
+  ($ct, $iv, $tag) = (Crypt::Misc::decode_b64($ct), Crypt::Misc::decode_b64($iv), Crypt::Misc::decode_b64($tag));
+
+  my $dk = $ENCRYPTION{$key}{$salt} ||= Crypt::KeyDerivation::pbkdf2($key, $salt);
+  return Crypt::AuthEnc::ChaCha20Poly1305::chacha20poly1305_decrypt_verify($dk, $iv, '', $ct, $tag);
 }
 
 sub decode {
@@ -128,6 +153,17 @@ sub dumper { Data::Dumper->new([@_])->Indent(1)->Sortkeys(1)->Terse(1)->Useqq(1)
 
 sub encode { _encoding($_[0])->encode("$_[1]", 0) }
 
+sub encrypt_cookie {
+  my ($value, $key, $salt) = @_;
+  croak 'CryptX 0.080+ required for encrypted cookie support' unless CRYPTX;
+
+  my $dk = $ENCRYPTION{$key}{$salt} ||= Crypt::KeyDerivation::pbkdf2($key, $salt);
+  my $iv = Crypt::PRNG::random_bytes(12);
+  my ($ct, $tag) = Crypt::AuthEnc::ChaCha20Poly1305::chacha20poly1305_encrypt_authenticate($dk, $iv, '', $value);
+
+  return join '-', Crypt::Misc::encode_b64($ct), Crypt::Misc::encode_b64($iv), Crypt::Misc::encode_b64($tag);
+}
+
 sub extract_usage {
   my $file = @_ ? "$_[0]" : (caller)[1];
 
@@ -137,6 +173,12 @@ sub extract_usage {
   $output =~ s/\n$//;
 
   return unindent($output);
+}
+
+sub generate_secret {
+  return Crypt::Misc::encode_b64u(Crypt::PRNG::random_bytes(128)) if CRYPTX;
+  srand;
+  return sha1_sum($$ . steady_time() . rand);
 }
 
 sub getopt {
@@ -162,6 +204,23 @@ sub gzip {
   return $compressed;
 }
 
+sub header_params {
+  my $value = shift;
+
+  my $params = {};
+  while ($value =~ /\G[;\s]*([^=;, ]+)\s*/gc) {
+    my $name = $1;
+
+    # Quoted value
+    if ($value =~ /$QUOTED_VALUE_RE/gco) { $params->{$name} //= unquote($1) }
+
+    # Unquoted value
+    elsif ($value =~ /$UNQUOTED_VALUE_RE/gco) { $params->{$name} //= $1 }
+  }
+
+  return ($params, substr($value, pos($value) // 0));
+}
+
 sub html_attr_unescape { _html(shift, 1) }
 sub html_unescape      { _html(shift, 0) }
 
@@ -175,13 +234,6 @@ sub humanize_bytes {
   return $prefix . _round($size) . 'MiB' if ($size /= 1024) < 1024;
   return $prefix . _round($size) . 'GiB' if ($size /= 1024) < 1024;
   return $prefix . _round($size /= 1024) . 'TiB';
-}
-
-sub monkey_patch {
-  my ($class, %patch) = @_;
-  no strict 'refs';
-  no warnings 'redefine';
-  *{"${class}::$_"} = set_subname("${class}::$_", $patch{$_}) for keys %patch;
 }
 
 sub network_contains {
@@ -450,10 +502,10 @@ sub _header {
     if ($expires && $str =~ /\G=\s*$EXPIRES_RE/gco) { $part[-1] = $1 }
 
     # Quoted value
-    elsif ($str =~ /\G=\s*("(?:\\\\|\\"|[^"])*")/gc) { $part[-1] = unquote $1 }
+    elsif ($str =~ /$QUOTED_VALUE_RE/gco) { $part[-1] = unquote $1 }
 
     # Unquoted value
-    elsif ($str =~ /\G=\s*([^;, ]*)/gc) { $part[-1] = $1 }
+    elsif ($str =~ /$UNQUOTED_VALUE_RE/gco) { $part[-1] = $1 }
 
     # Separator
     next unless $str =~ /\G[;\s]*,\s*/gc;
@@ -622,6 +674,13 @@ Convert C<CamelCase> string to C<snake_case> and replace C<::> with C<->.
 
 Decode bytes to characters with L<Encode>, or return C<undef> if decoding failed.
 
+=head2 decrypt_cookie
+
+  my $value = decrypt_cookie $encrypted, 'passw0rd', 'salt';
+
+Decrypt cookie value encrypted with L</encrypt_cookie>, returns the decrypted value or C<undef>. Note that this
+function is B<EXPERIMENTAL> and might change without warning!
+
 =head2 deprecated
 
   deprecated 'foo is DEPRECATED in favor of bar';
@@ -641,6 +700,12 @@ Dump a Perl data structure with L<Data::Dumper>.
 
 Encode characters to bytes with L<Encode>.
 
+=head2 encrypt_cookie
+
+  my $encrypted = encrypt_cookie $value, 'passw0rd', 'salt';
+
+Encrypt cookie value. Note that this function is B<EXPERIMENTAL> and might change without warning!
+
 =head2 extract_usage
 
   my $usage = extract_usage;
@@ -657,6 +722,13 @@ function was called from.
     Usage: APPLICATION test [OPTIONS]
 
   =cut
+
+=head2 generate_secret
+
+  my $secret = generate_secret;
+
+Generate a random secret with a cryptographically secure random number generator if available, and a less secure
+fallback if not. Note that this function is B<EXPERIMENTAL> and might change without warning!
 
 =head2 getopt
 
@@ -691,6 +763,13 @@ Uncompress bytes with L<IO::Compress::Gunzip>.
   my $compressed = gzip $uncompressed;
 
 Compress bytes with L<IO::Compress::Gzip>.
+
+=head2 header_params
+
+  my ($params, $remainder) = header_params 'one=foo; two="bar", three=baz';
+
+Extract HTTP header field parameters until the first comma according to L<RFC 5987|http://tools.ietf.org/html/rfc5987>.
+Note that this function is B<EXPERIMENTAL> and might change without warning!
 
 =head2 hmac_sha1_sum
 

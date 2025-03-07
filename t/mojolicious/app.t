@@ -79,24 +79,24 @@ subtest 'Preload namespaces' => sub {
 };
 
 # Application is already available
-is $t->app->routes->find('something')->to_string, '/test4/:something', 'right pattern';
+is $t->app->routes->find('something')->to_string,                       '/test4/:something',     'right pattern';
 is $t->app->routes->find('test3')->pattern->defaults->{namespace},      'MojoliciousTest2::Foo', 'right namespace';
 is $t->app->routes->find('withblock')->pattern->defaults->{controller}, 'foo',                   'right controller';
-is ref $t->app->routes->find('something'), 'Mojolicious::Routes::Route', 'right class';
-is ref $t->app->routes->find('something')->root, 'Mojolicious::Routes', 'right class';
-is $t->app->sessions->cookie_domain, '.example.com', 'right domain';
-is $t->app->sessions->cookie_path,   '/bar',         'right path';
+is ref $t->app->routes->find('something'),                              'Mojolicious::Routes::Route', 'right class';
+is ref $t->app->routes->find('something')->root,                        'Mojolicious::Routes',        'right class';
+is $t->app->sessions->cookie_domain,                                    '.example.com',               'right domain';
+is $t->app->sessions->cookie_path,                                      '/bar',                       'right path';
 is_deeply $t->app->commands->namespaces,
   ['Mojolicious::Command::Author', 'Mojolicious::Command', 'MojoliciousTest::Command'], 'right namespaces';
-is $t->app, $t->app->commands->app, 'applications are equal';
+is $t->app,                                   $t->app->commands->app,                         'applications are equal';
 is $t->app->static->file('hello.txt')->slurp, "Hello Mojo from a development static file!\n", 'right content';
-is $t->app->static->file('does_not_exist.html'), undef, 'no file';
-is $t->app->moniker, 'mojolicious_test', 'right moniker';
-is $t->app->secrets->[0], $t->app->moniker, 'secret defaults to moniker';
-is $t->app->renderer->template_handler({template => 'foo/bar/index', format => 'html'}), 'epl', 'right handler';
-is $t->app->build_controller->req->url, '', 'no URL';
-is $t->app->build_controller->render_to_string('does_not_exist'), undef, 'no result';
-is $t->app->build_controller->render_to_string(inline => '%= $c', c => 'foo'), "foo\n", 'right result';
+is $t->app->static->file('does_not_exist.html'), undef,              'no file';
+is $t->app->moniker,                             'mojolicious_test', 'right moniker';
+is $t->app->secrets->[0],                        $t->app->moniker,   'secret defaults to moniker';
+is $t->app->renderer->template_handler({template => 'foo/bar/index', format => 'html'}), 'epl',   'right handler';
+is $t->app->build_controller->req->url,                                                  '',      'no URL';
+is $t->app->build_controller->render_to_string('does_not_exist'),                        undef,   'no result';
+is $t->app->build_controller->render_to_string(inline => '%= $c', c => 'foo'),           "foo\n", 'right result';
 
 # Missing methods and functions (AUTOLOAD)
 eval { $t->app->missing };
@@ -114,7 +114,7 @@ eval { Mojolicious::Route::missing() };
 like $@, qr/^Undefined subroutine &Mojolicious::Route::missing called/, 'right error';
 
 subtest 'Reserved stash value' => sub {
-  ok !$t->app->routes->is_reserved('foo'), 'not reserved';
+  ok !$t->app->routes->is_reserved('foo'),       'not reserved';
   ok $t->app->routes->is_reserved('action'),     'is reserved';
   ok $t->app->routes->is_reserved('app'),        'is reserved';
   ok $t->app->routes->is_reserved('cb'),         'is reserved';
@@ -170,14 +170,12 @@ $t->get_ok('/plugin-test-some_plugin2/register')->status_isnt(404)->status_is(50
   ->content_like(qr/Class "MojoliciousTest::Plugin::Test::SomePlugin2" is not a controller/);
 
 # Plugin::Test::SomePlugin2::register (security violation again)
-$t->app->log->level('trace')->unsubscribe('message');
-my $log = '';
-my $cb  = $t->app->log->on(message => sub { $log .= pop });
+my $logs = $t->app->log->capture('trace');
 $t->get_ok('/plugin-test-some_plugin2/register')->status_isnt(404)->status_is(500)
   ->header_is(Server => 'Mojolicious (Perl)')->content_unlike(qr/Something/)
   ->content_like(qr/Class "MojoliciousTest::Plugin::Test::SomePlugin2" is not a controller/);
-like $log, qr/Class "MojoliciousTest::Plugin::Test::SomePlugin2" is not a controller/, 'right message';
-$t->app->log->unsubscribe(message => $cb);
+like $logs, qr/Class "MojoliciousTest::Plugin::Test::SomePlugin2" is not a controller/, 'right message';
+undef $logs;
 
 # Foo::fun (with a lot of different tests)
 my $url = $t->ua->server->url;
@@ -209,12 +207,11 @@ $t->get_ok('/fun/joy')->status_is(200)->attr_is('p.joy', 'style', 'background-co
   ->attr_unlike('p.joy', 'style', qr/^float/)->attr_unlike('p.joy', 'style', qr/^float/, 'with description');
 
 # Foo::baz (missing action without template)
-$log = '';
-$cb  = $t->app->log->on(message => sub { $log .= pop });
+$logs = $t->app->log->capture('trace');
 $t->get_ok('/foo/baz')->status_is(500)->header_is(Server => 'Mojolicious (Perl)')->content_unlike(qr/Something/)
   ->content_like(qr/Route without action and nothing to render/);
-like $log, qr/Action not found in controller/, 'right message';
-$t->app->log->unsubscribe(message => $cb);
+like $logs, qr/Action not found in controller/, 'right message';
+undef $logs;
 
 # Foo::yada (action-less template)
 $t->get_ok('/foo/yada')->status_is(200)->header_is(Server => 'Mojolicious (Perl)')
@@ -225,16 +222,15 @@ $t->get_ok('/syntax_error/foo')->status_is(500)->header_is(Server => 'Mojoliciou
   ->content_like(qr/Missing right curly/);
 
 # Foo::syntaxerror (syntax error in template)
-$log = '';
-$cb  = $t->app->log->on(message => sub { $log .= pop });
+$logs = $t->app->log->capture('trace');
 $t->get_ok('/foo/syntaxerror')->status_is(500)->header_is(Server => 'Mojolicious (Perl)')
   ->content_like(qr/Missing right curly/);
-like $log, qr/Rendering template "syntaxerror.html.epl"/,          'right message';
-like $log, qr/Missing right curly/,                                'right message';
-like $log, qr/Template "exception.development.html.ep" not found/, 'right message';
-like $log, qr/Rendering template "exception.html.epl"/,            'right message';
-like $log, qr/500 Internal Server Error/,                          'right message';
-$t->app->log->unsubscribe(message => $cb);
+like $logs, qr/Rendering template "syntaxerror.html.epl"/,          'right message';
+like $logs, qr/Missing right curly/,                                'right message';
+like $logs, qr/Template "exception.development.html.ep" not found/, 'right message';
+like $logs, qr/Rendering template "exception.html.epl"/,            'right message';
+like $logs, qr/500 Internal Server Error/,                          'right message';
+undef $logs;
 
 # Exceptional::this_one_dies (action dies)
 $t->get_ok('/exceptional/this_one_dies')->status_is(500)->header_is(Server => 'Mojolicious (Perl)')
@@ -261,14 +257,13 @@ $t->get_ok('/fun/time' => {'X-Test' => 'Hi there!'})->status_is(200)->header_is(
   ->header_is(Server => 'Mojolicious (Perl)')->content_is('<p>Have fun!</p>');
 
 # Foo::fun
-$url = $t->ua->server->url;
-$log = '';
-$cb  = $t->app->log->on(message => sub { $log .= pop });
+$url  = $t->ua->server->url;
+$logs = $t->app->log->capture('trace');
 $url->path('/fun/time');
 $t->get_ok($url => {'X-Test' => 'Hi there!'})->status_is(200)->header_is('X-Bender' => undef)
   ->header_is(Server => 'Mojolicious (Perl)')->content_is('<p>Have fun!</p>');
-like $log, qr!Rendering cached template "foo/fun\.html\.ep" from DATA section!, 'right message';
-$t->app->log->unsubscribe(message => $cb);
+like $logs, qr!Rendering cached template "foo/fun\.html\.ep" from DATA section!, 'right message';
+undef $logs;
 
 # Foo::fun
 $t->get_ok('/happy/fun/time' => {'X-Test' => 'Hi there!'})->status_is(200)->header_is('X-Bender' => undef)
@@ -353,11 +348,10 @@ $t->get_ok('/another/file')->status_is(200)->header_is(Server => 'Mojolicious (P
   ->content_type_is('application/octet-stream')->content_like(qr/Hello Mojolicious!/);
 
 # Static directory /another
-$log = '';
-$cb  = $t->app->log->on(message => sub { $log .= pop });
+$logs = $t->app->log->capture('trace');
 $t->get_ok('/another')->status_is(500)->header_is(Server => 'Mojolicious (Perl)');
-like $log, qr/Controller "MojoliciousTest::Another" does not exist/, 'right message';
-$t->app->log->unsubscribe(message => $cb);
+like $logs, qr/Controller "MojoliciousTest::Another" does not exist/, 'right message';
+undef $logs;
 
 # Check Last-Modified header for static files
 my $path  = curfile->sibling('public_dev', 'hello.txt');
@@ -446,15 +440,15 @@ is(MojoliciousTest->new({mode => 'test'})->mode, 'test', 'right mode');
 $app = MojoliciousTest->new;
 my $tx = $t->ua->build_tx(GET => '/foo');
 $app->handler($tx);
-is $tx->res->code,   200,                                                 'right status';
+is $tx->res->code, 200, 'right status';
 like $tx->res->body, qr|Hello Mojo from the template /foo! Hello World!|, 'right content';
 $tx = $t->ua->build_tx(GET => '/foo/willdie');
 $app->handler($tx);
-is $tx->res->code,   500,         'right status';
+is $tx->res->code, 500, 'right status';
 like $tx->res->body, qr/Foo\.pm/, 'right content';
 $tx = $t->ua->build_tx(GET => '/foo');
 $app->handler($tx);
-is $tx->res->code,   200,                                                 'right status';
+is $tx->res->code, 200, 'right status';
 like $tx->res->body, qr|Hello Mojo from the template /foo! Hello World!|, 'right content';
 
 $t = Test::Mojo->new('SingleFileTestApp');
@@ -489,11 +483,10 @@ $t->get_ok('/foo/routes')->status_is(200)->header_is('X-Bender' => 'Bite my shin
 
 # SingleFileTestApp::Redispatch::handler
 $t->app->log->level('trace')->unsubscribe('message');
-$log = '';
-$cb  = $t->app->log->on(message => sub { $log .= pop });
+$logs = $t->app->log->capture;
 $t->get_ok('/redispatch')->status_is(200)->header_is(Server => 'Mojolicious (Perl)')->content_is('Redispatch!');
-like $log, qr/Routing to application "SingleFileTestApp::Redispatch"/, 'right message';
-$t->app->log->unsubscribe(message => $cb);
+like $logs, qr/Routing to application "SingleFileTestApp::Redispatch"/, 'right message';
+undef $logs;
 
 # SingleFileTestApp::Redispatch::render
 $t->get_ok('/redispatch/render')->status_is(200)->header_is(Server => 'Mojolicious (Perl)')->content_is('Render!');
@@ -529,17 +522,15 @@ $t->get_ok('/staged' => {'X-Pass' => 1})->status_is(200)->header_is(Server => 'M
 $t->get_ok('/staged')->status_is(200)->header_is(Server => 'Mojolicious (Perl)')->content_is('Go away!');
 
 # MojoliciousTestController::Foo::suspended
-$t->app->log->level('trace')->unsubscribe('message');
-$log = '';
-$cb  = $t->app->log->on(message => sub { $log .= pop });
+$logs = $t->app->log->capture('trace');
 $t->get_ok('/suspended')->status_is(200)->header_is(Server => 'Mojolicious (Perl)')
   ->header_is('X-Suspended' => '0, 1, 1, 2')->content_is('<p>Have fun!</p>');
-like $log, qr!GET "/suspended"!,                                                    'right message';
-like $log, qr/Routing to controller "MojoliciousTest::Foo" and action "suspended"/, 'right message';
-like $log, qr/Routing to controller "MojoliciousTest::Foo" and action "fun"/,       'right message';
-like $log, qr!Rendering template "foo/fun.html.ep" from DATA section!,              'right message';
-like $log, qr/200 OK/,                                                              'right message';
-$t->app->log->unsubscribe(message => $cb);
+like $logs, qr!GET "/suspended"!,                                                    'right message';
+like $logs, qr/Routing to controller "MojoliciousTest::Foo" and action "suspended"/, 'right message';
+like $logs, qr/Routing to controller "MojoliciousTest::Foo" and action "fun"/,       'right message';
+like $logs, qr!Rendering template "foo/fun.html.ep" from DATA section!,              'right message';
+like $logs, qr/200 OK/,                                                              'right message';
+undef $logs;
 
 # MojoliciousTest::Foo::longpoll
 my $stash;

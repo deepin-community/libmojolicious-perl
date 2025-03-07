@@ -5,27 +5,27 @@ Source: https://metacpan.org/release/Mojolicious
 Comment: some bundled resources are removed
  (not the preferred form of modification and/or already packaged)
 Files-Excluded:
- lib/Mojolicious/resources/public/mojo/jquery
  lib/Mojolicious/resources/public/mojo/highlight.js/highlight.min.js
  lib/Mojolicious/resources/public/mojo/bootstrap
+ lib/Mojolicious/resources/public/mojo/popper
 
 Files: *
-Copyright: 2008-2020, Sebastian Riedel <sri@cpan.org>
+Copyright: 2008-2024, Sebastian Riedel <sri@cpan.org>
 License: Artistic-2.0
 
 Files: lib/Mojolicious/resources/public/mojo/*
-Copyright: 2010-2020, Sebastian Riedel <sri@cpan.org>
+Copyright: 2010-2024, Sebastian Riedel <sri@cpan.org>
 License: CC-BY-SA-4.0
 
 Files: debian/*
 Copyright: 2010-2011, Jonathan Yu <jawnsy@cpan.org>
- 2010-2021, gregor herrmann <gregoa@debian.org>
+ 2010-2024, gregor herrmann <gregoa@debian.org>
  2011, Angel Abad <angel@debian.org>
  2011, Fabrizio Regalli <fabreg@fabreg.it>
  2011-2012, Krzysztof Krzyżaniak (eloy) <eloy@debian.org>
  2011, Salvatore Bonaccorso <carnil@debian.org>
  2012-2017, CSILLAG Tamas <cstamas@cstamas.hu>
- 2016-2019, Nick Morrott <nickm@debian.org>
+ 2016-2022, Nick Morrott <nickm@debian.org>
 License: Artistic or GPL-1+
 
 License: Artistic
