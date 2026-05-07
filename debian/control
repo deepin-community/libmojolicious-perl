@@ -33,6 +33,7 @@ Depends: ${misc:Depends},
          libjs-highlight.js,
          libjs-jquery
 Recommends: libcpan-meta-yaml-perl,
+            libcryptx-perl,
             libcpanel-json-xs-perl,
             libev-perl (>= 4.32),
             libfuture-asyncawait-perl (>= 0.52) <!nocheck>,

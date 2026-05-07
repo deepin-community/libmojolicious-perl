@@ -1,3 +1,14 @@
+libmojolicious-perl (9.22+dfsg-1deepin1) unstable; urgency=medium
+
+  * Fix CVE-2024-58134: refuse to use insecure default session secrets.
+    Backport from upstream PR #2252 to reject using predictable moniker
+    as session secret when setting signed cookies or session data.
+  * Fix CVE-2024-58135: the generate_secret function uses weak random
+    without CryptX. Recommend installing libcryptx-perl for secure
+    random generation when using 'mojo generate app'.
+
+ -- deepin-ci-robot <packages@deepin.org>  Thu, 08 May 2026 21:40:00 +0800
+
 libmojolicious-perl (9.22+dfsg-1) unstable; urgency=medium
 
   * Import upstream version 9.22+dfsg.
